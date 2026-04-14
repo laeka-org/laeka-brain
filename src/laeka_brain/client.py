@@ -254,6 +254,57 @@ async def ingest_mini_brain_chunk(
         return None
 
 
+async def search_mini_brain(
+    user_uuid: str,
+    query: str,
+    k: int = 5,
+    timeout: float = 10.0,
+) -> Optional[dict]:
+    """Semantic search in the user's mini-brain.
+
+    POST /v1/brain/mini/search with {user_uuid, query, k}.
+    Returns the response dict on 200, None on any error (404, 422, network, timeout).
+    """
+    if not query or not query.strip():
+        log.warning("search_mini_brain: empty query — skipping")
+        return None
+
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/mini/search"
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.post(
+                url,
+                json={"user_uuid": user_uuid, "query": query, "k": k},
+                headers={"X-Consumer": "laeka-brain"},
+            )
+        if r.status_code == 200:
+            data = r.json()
+            log.debug(
+                "search_mini_brain: %d results user=%.8s... query=%r",
+                len(data.get("results", [])), user_uuid, query,
+            )
+            return data
+        if r.status_code == 404:
+            log.debug(
+                "search_mini_brain: 404 — mini-brain not provisioned user=%.8s...", user_uuid
+            )
+            return None
+        if r.status_code == 422:
+            log.warning(
+                "search_mini_brain: 422 — validation error (empty query?) user=%.8s...: %s",
+                user_uuid, r.text[:200],
+            )
+            return None
+        log.warning(
+            "search_mini_brain: status=%d user=%.8s...: %s",
+            r.status_code, user_uuid, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("search_mini_brain: network error (%s)", exc)
+        return None
+
+
 async def offboard_mini_brain(user_uuid: str) -> Optional[dict]:
     """Trigger offboarding for user_uuid — exports then destroys mini-brain.
 
