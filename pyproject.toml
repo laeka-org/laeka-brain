@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "laeka-brain-mcp"
+name = "laeka-brain"
 version = "0.1.0"
 description = "MCP server — Laeka Brain cognitive layer for Claude Code"
 readme = "README.md"
@@ -37,10 +37,10 @@ dev = [
 ]
 
 [project.scripts]
-laeka-brain-mcp = "laeka_brain_mcp.server:main"
+laeka-brain = "laeka_brain.server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/laeka_brain_mcp"]
+packages = ["src/laeka_brain"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

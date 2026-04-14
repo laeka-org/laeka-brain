@@ -100,7 +100,7 @@ async def tool_consolidate(text: str) -> str:
         priority=3.0,
         core_concept="session_pattern",
         chunk_role="detail",
-        source="laeka-brain-mcp",
+        source="laeka-brain",
     )
 
     if result is None:
@@ -124,7 +124,7 @@ async def tool_consolidate(text: str) -> str:
                 priority=3.0,
                 core_concept="session_pattern",
                 chunk_role="detail",
-                source="laeka-brain-mcp",
+                source="laeka-brain",
             )
             if result is None:
                 return (

@@ -22,7 +22,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
-from laeka_brain_mcp.client import (
+from laeka_brain.client import (
     LAEKA_BRAIN_API_URL,
     bust_all,
     fetch_brain_identity,
@@ -31,7 +31,7 @@ from laeka_brain_mcp.client import (
     offboard_mini_brain,
     provision_mini_brain,
 )
-from laeka_brain_mcp.tools import tool_consolidate, tool_query, tool_recall, tool_reflect
+from laeka_brain.tools import tool_consolidate, tool_query, tool_recall, tool_reflect
 
 # ---------------------------------------------------------------------------
 # Connectivity guard — skip entire module if Seahorse is unreachable
@@ -42,7 +42,7 @@ def _seahorse_reachable() -> bool:
         r = httpx.get(
             f"{LAEKA_BRAIN_API_URL}/v1/brain/identity",
             params={"format": "system_prompt"},
-            headers={"X-Consumer": "laeka-brain-mcp-smoke"},
+            headers={"X-Consumer": "laeka-brain-smoke"},
             timeout=5.0,
         )
         return r.status_code == 200
@@ -62,8 +62,8 @@ SMOKE_UUID = f"smoke-{uuid.uuid4()}"
 
 @pytest.fixture(autouse=True)
 def patch_uuid_to_smoke(monkeypatch):
-    monkeypatch.setattr("laeka_brain_mcp.tools.get_user_uuid", lambda: SMOKE_UUID)
-    monkeypatch.setattr("laeka_brain_mcp.config.get_user_uuid", lambda: SMOKE_UUID)
+    monkeypatch.setattr("laeka_brain.tools.get_user_uuid", lambda: SMOKE_UUID)
+    monkeypatch.setattr("laeka_brain.config.get_user_uuid", lambda: SMOKE_UUID)
 
 
 @pytest.fixture(scope="module", autouse=True)

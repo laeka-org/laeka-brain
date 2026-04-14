@@ -1,4 +1,4 @@
-"""Tests for laeka_brain_mcp.tools — mocked client calls."""
+"""Tests for laeka_brain.tools — mocked client calls."""
 from __future__ import annotations
 
 import pytest
@@ -6,8 +6,8 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from laeka_brain_mcp import tools as brain_tools
-from laeka_brain_mcp.tools import (
+from laeka_brain import tools as brain_tools
+from laeka_brain.tools import (
     tool_consolidate,
     tool_query,
     tool_recall,
@@ -28,11 +28,11 @@ def patch_user_uuid(monkeypatch, tmp_path):
     uuid_file = tmp_path / "user_uuid"
     uuid_file.write_text("test-user-uuid-1234\n")
     monkeypatch.setattr(
-        "laeka_brain_mcp.tools.get_user_uuid",
+        "laeka_brain.tools.get_user_uuid",
         lambda: "test-user-uuid-1234",
     )
     monkeypatch.setattr(
-        "laeka_brain_mcp.config.get_user_uuid",
+        "laeka_brain.config.get_user_uuid",
         lambda: "test-user-uuid-1234",
     )
 
@@ -182,12 +182,12 @@ def test_user_uuid_persists_to_xdg_config(tmp_path):
 import os, sys
 os.environ["XDG_CONFIG_HOME"] = {str(tmp_path)!r}
 sys.path.insert(0, {str(os.path.join(os.path.dirname(__file__), '..', 'src'))!r})
-import laeka_brain_mcp.config as config_mod
+import laeka_brain.config as config_mod
 uuid1 = config_mod.get_user_uuid()
 uuid2 = config_mod.get_user_uuid()
 assert len(uuid1) == 36, f"bad uuid: {{uuid1!r}}"
 assert uuid1 == uuid2, "uuid changed between calls"
-uuid_file = os.path.join({str(tmp_path)!r}, "laeka-brain-mcp", "user_uuid")
+uuid_file = os.path.join({str(tmp_path)!r}, "laeka-brain", "user_uuid")
 assert os.path.exists(uuid_file), "file not created"
 stored = open(uuid_file).read().strip()
 assert stored == uuid1, f"stored {{stored!r}} != {{uuid1!r}}"

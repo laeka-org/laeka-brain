@@ -102,7 +102,7 @@ async def fetch_brain_identity(format_: str = "system_prompt") -> str:
             r = await client.get(
                 url,
                 params={"format": format_},
-                headers={"X-Consumer": "laeka-brain-mcp"},
+                headers={"X-Consumer": "laeka-brain"},
             )
         if r.status_code == 200:
             text = r.text
@@ -135,7 +135,7 @@ async def provision_mini_brain(user_uuid: str) -> Optional[dict]:
             r = await client.post(
                 url,
                 json={"user_uuid": user_uuid},
-                headers={"X-Consumer": "laeka-brain-mcp"},
+                headers={"X-Consumer": "laeka-brain"},
             )
         if r.status_code in (200, 409):
             data = r.json()
@@ -169,7 +169,7 @@ async def get_mini_brain_identity(user_uuid: str) -> Optional[dict]:
             r = await client.get(
                 url,
                 params={"user_uuid": user_uuid},
-                headers={"X-Consumer": "laeka-brain-mcp"},
+                headers={"X-Consumer": "laeka-brain"},
             )
         if r.status_code == 200:
             data = r.json()
@@ -197,7 +197,7 @@ async def ingest_mini_brain_chunk(
     priority: float = 3.0,
     core_concept: str = "session_pattern",
     chunk_role: str = "detail",
-    source: str = "laeka-brain-mcp",
+    source: str = "laeka-brain",
     heading: str = "",
 ) -> Optional[dict]:
     """Ingest a chunk into the user's mini-brain.
@@ -227,7 +227,7 @@ async def ingest_mini_brain_chunk(
             r = await client.post(
                 url,
                 json=body,
-                headers={"X-Consumer": "laeka-brain-mcp"},
+                headers={"X-Consumer": "laeka-brain"},
             )
         if r.status_code == 200:
             data = r.json()
@@ -265,7 +265,7 @@ async def offboard_mini_brain(user_uuid: str) -> Optional[dict]:
             r = await client.post(
                 url,
                 json={"user_uuid": user_uuid, "confirm": True},
-                headers={"X-Consumer": "laeka-brain-mcp"},
+                headers={"X-Consumer": "laeka-brain"},
             )
         if r.status_code == 200:
             data = r.json()

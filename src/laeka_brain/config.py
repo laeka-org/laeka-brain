@@ -1,7 +1,7 @@
 """XDG-aware user_uuid storage.
 
 First time the server runs, it generates a UUID v4 and writes it to
-~/.config/laeka-brain-mcp/user_uuid (XDG_CONFIG_HOME honoured).
+~/.config/laeka-brain/user_uuid (XDG_CONFIG_HOME honoured).
 All subsequent runs read from that file — no interactive prompt needed.
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ def _config_dir() -> Path:
         base = Path(xdg)
     else:
         base = Path.home() / ".config"
-    return base / "laeka-brain-mcp"
+    return base / "laeka-brain"
 
 
 def _uuid_path() -> Path:

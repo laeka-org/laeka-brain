@@ -1,4 +1,4 @@
-"""Tests for laeka_brain_mcp.client — mocked HTTP."""
+"""Tests for laeka_brain.client — mocked HTTP."""
 from __future__ import annotations
 
 import json
@@ -9,8 +9,8 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from laeka_brain_mcp import client as brain_client
-from laeka_brain_mcp.client import (
+from laeka_brain import client as brain_client
+from laeka_brain.client import (
     bust_all,
     fetch_brain_identity,
     get_mini_brain_identity,

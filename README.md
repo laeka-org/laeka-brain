@@ -1,4 +1,4 @@
-# laeka-brain-mcp
+# laeka-brain
 
 A cognitive layer for the AI you already use.
 
@@ -24,13 +24,13 @@ The four OmniQ lenses — MONADE, SYMBIOTE, ARCHITECT, EMPATH — operate throug
 **Requirements:** Python 3.12+, Claude Code.
 
 ```bash
-pip install laeka-brain-mcp
+pip install laeka-brain
 ```
 
 Or without installing permanently:
 
 ```bash
-uvx laeka-brain-mcp
+uvx laeka-brain
 ```
 
 ---
@@ -43,7 +43,7 @@ Add this to `~/.claude/.mcp.json`:
 {
   "mcpServers": {
     "laeka-brain": {
-      "command": "laeka-brain-mcp",
+      "command": "laeka-brain",
       "env": {
         "LAEKA_BRAIN_API_URL": "http://172.105.0.134:8822"
       }
@@ -52,7 +52,7 @@ Add this to `~/.claude/.mcp.json`:
 }
 ```
 
-If you installed via `uvx`, replace `"command"` with `"uvx laeka-brain-mcp"` or use the full `uvx` path.
+If you installed via `uvx`, replace `"command"` with `"uvx laeka-brain"` or use the full `uvx` path.
 
 **Environment variables:**
 
@@ -61,7 +61,7 @@ If you installed via `uvx`, replace `"command"` with `"uvx laeka-brain-mcp"` or 
 | `LAEKA_BRAIN_API_URL` | `http://172.105.0.134:8822` | Seahorse API base URL |
 | `XDG_CONFIG_HOME` | `~/.config` | Override config dir location |
 
-Your `user_uuid` is generated on first run and stored at `~/.config/laeka-brain-mcp/user_uuid`. It is the key to your personal mini-brain. Keep it — it cannot be recovered if lost.
+Your `user_uuid` is generated on first run and stored at `~/.config/laeka-brain/user_uuid`. It is the key to your personal mini-brain. Keep it — it cannot be recovered if lost.
 
 ---
 
@@ -114,18 +114,18 @@ In Phase 3: returns your chunk count and the date your mini-brain was born. Sema
 If you want to remove Laeka Brain from your environment:
 
 1. Remove the `laeka-brain` entry from `~/.claude/.mcp.json`.
-2. Delete your local config: `rm -rf ~/.config/laeka-brain-mcp`
+2. Delete your local config: `rm -rf ~/.config/laeka-brain`
 3. Optionally, destroy your mini-brain on the server:
 
 ```bash
 curl -X POST http://172.105.0.134:8822/v1/brain/mini/offboard \
   -H "Content-Type: application/json" \
-  -d "{\"user_uuid\": \"$(cat ~/.config/laeka-brain-mcp/user_uuid)\", \"confirm\": true}"
+  -d "{\"user_uuid\": \"$(cat ~/.config/laeka-brain/user_uuid)\", \"confirm\": true}"
 ```
 
 This destroys your private chunks permanently. Patterns that were anonymized and contributed to the collective remain as collective learning — they are not yours anymore, and they are not reversible.
 
-No cron jobs. No daemons. No leftover files beyond `~/.config/laeka-brain-mcp/` (which you just deleted).
+No cron jobs. No daemons. No leftover files beyond `~/.config/laeka-brain/` (which you just deleted).
 
 ---
 

@@ -1,14 +1,14 @@
 """Laeka Brain MCP server — entry point.
 
 Run via:
-    laeka-brain-mcp                     # stdio (Claude Code default)
-    uvx laeka-brain-mcp                 # no install required
+    laeka-brain                         # stdio (Claude Code default)
+    uvx laeka-brain                     # no install required
 
 Configure in ~/.claude/.mcp.json:
     {
       "mcpServers": {
         "laeka-brain": {
-          "command": "laeka-brain-mcp",
+          "command": "laeka-brain",
           "env": {
             "LAEKA_BRAIN_API_URL": "http://172.105.0.134:8822"
           }
