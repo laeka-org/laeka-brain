@@ -14,6 +14,31 @@ from laeka_brain.tools import (
     tool_reflect,
 )
 
+# ---------------------------------------------------------------------------
+# Shared helpers / stubs
+# ---------------------------------------------------------------------------
+
+def _make_search_response(results, total=10):
+    """Build a minimal /v1/brain/mini/search response dict."""
+    return {
+        "results": results,
+        "query": "test-query",
+        "user_uuid": "test-user-uuid-1234",
+        "total_chunks_in_brain": total,
+    }
+
+
+def _make_hit(score=0.87, text="Some stored insight about auth modules.", sector="session_consolidation", doc_type="pattern_observation", created_at="2026-04-14T10:00:00+00:00"):
+    return {
+        "doc_id": "test-doc-id",
+        "text": text,
+        "score": score,
+        "doc_type": doc_type,
+        "circle": 2,
+        "sector": sector,
+        "created_at": created_at,
+    }
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -130,40 +155,130 @@ async def test_consolidate_idempotent_when_mini_brain_exists(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# test_recall_returns_chunks_count
+# test_recall_* — Phase 5a semantic search
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_recall_returns_chunks_count(monkeypatch):
-    """tool_recall shows chunk count and born_on when mini-brain exists."""
-    async def _identity_ok(user_uuid):
-        return {
-            "user_uuid": user_uuid,
-            "client_id": "mini-brain-test",
-            "born_on": "2026-04-14T10:00:00+00:00",
-            "parent": "laeka-brain-core",
-            "parent_version": "v0.3-en",
-            "private_chunks_count": 7,
-            "exists": True,
-        }
+async def test_recall_calls_search_endpoint(monkeypatch):
+    """tool_recall calls search_mini_brain with the user's query."""
+    calls = []
 
-    monkeypatch.setattr(brain_tools, "get_mini_brain_identity", _identity_ok)
-    result = await tool_recall("What did I learn about auth modules?")
-    assert "7 private chunks" in result
-    assert "2026-04-14" in result
-    assert "What did I learn about auth modules?" in result
-    assert "Phase 4" in result
+    async def _search(user_uuid, query, k):
+        calls.append({"user_uuid": user_uuid, "query": query, "k": k})
+        return _make_search_response([_make_hit()])
+
+    monkeypatch.setattr(brain_tools, "search_mini_brain", _search)
+    await tool_recall("What did I learn about auth modules?")
+
+    assert len(calls) == 1
+    assert calls[0]["query"] == "What did I learn about auth modules?"
+    assert calls[0]["user_uuid"] == "test-user-uuid-1234"
+    assert calls[0]["k"] == 5
 
 
 @pytest.mark.asyncio
-async def test_recall_no_mini_brain(monkeypatch):
-    """tool_recall gracefully handles unprovisionned mini-brain."""
+async def test_recall_formats_results_as_markdown(monkeypatch):
+    """tool_recall formats hits as numbered markdown with score, sector, doc_type, created."""
+    hit = _make_hit(score=0.92, text="Auth naming friction is really a module boundary problem.", sector="session_consolidation", doc_type="pattern_observation", created_at="2026-04-10T08:00:00+00:00")
+
+    async def _search(user_uuid, query, k):
+        return _make_search_response([hit], total=5)
+
+    monkeypatch.setattr(brain_tools, "search_mini_brain", _search)
+    result = await tool_recall("auth modules")
+
+    assert "Found **1 result**" in result
+    assert "[score 0.92]" in result
+    assert "Auth naming friction" in result
+    assert "sector: session_consolidation" in result
+    assert "doc_type: pattern_observation" in result
+    assert "2026-04-10" in result
+    assert "5 total chunks" in result
+
+
+@pytest.mark.asyncio
+async def test_recall_handles_404_gracefully(monkeypatch):
+    """tool_recall falls back cleanly when search endpoint returns None (404 / not provisioned)."""
+    async def _search_none(user_uuid, query, k):
+        return None  # simulates 404 or network error
+
     async def _identity_none(user_uuid):
+        return None  # mini-brain not provisioned
+
+    monkeypatch.setattr(brain_tools, "search_mini_brain", _search_none)
+    monkeypatch.setattr(brain_tools, "get_mini_brain_identity", _identity_none)
+
+    result = await tool_recall("patterns about naming")
+    assert "doesn't exist" in result or "not exist" in result
+
+
+@pytest.mark.asyncio
+async def test_recall_handles_empty_results(monkeypatch):
+    """tool_recall handles search response with empty results list."""
+    async def _search(user_uuid, query, k):
+        return _make_search_response([], total=12)
+
+    monkeypatch.setattr(brain_tools, "search_mini_brain", _search)
+    result = await tool_recall("something obscure nobody ever stored")
+
+    assert "No matches found" in result
+    assert "something obscure nobody ever stored" in result
+    assert "12 private chunks" in result
+
+
+@pytest.mark.asyncio
+async def test_recall_includes_score_in_output(monkeypatch):
+    """tool_recall includes the relevance score in the formatted output."""
+    async def _search(user_uuid, query, k):
+        return _make_search_response([
+            _make_hit(score=0.75),
+            _make_hit(score=0.61, text="A second insight."),
+        ], total=20)
+
+    monkeypatch.setattr(brain_tools, "search_mini_brain", _search)
+    result = await tool_recall("anything")
+
+    assert "[score 0.75]" in result
+    assert "[score 0.61]" in result
+    assert "Found **2 results**" in result
+
+
+@pytest.mark.asyncio
+async def test_recall_truncates_long_text_snippets(monkeypatch):
+    """tool_recall truncates text snippets to 200 chars and appends ellipsis."""
+    long_text = "A" * 250
+
+    async def _search(user_uuid, query, k):
+        return _make_search_response([_make_hit(text=long_text)])
+
+    monkeypatch.setattr(brain_tools, "search_mini_brain", _search)
+    result = await tool_recall("long text test")
+
+    # The truncated text should appear with ellipsis, not the full 250 chars.
+    assert "A" * 200 in result
+    assert "A" * 201 not in result
+    assert "…" in result
+
+
+@pytest.mark.asyncio
+async def test_recall_fallback_shows_chunk_count_when_search_unavailable(monkeypatch):
+    """When search returns None but mini-brain exists, fallback shows chunk count."""
+    async def _search_none(user_uuid, query, k):
         return None
 
-    monkeypatch.setattr(brain_tools, "get_mini_brain_identity", _identity_none)
-    result = await tool_recall("anything")
-    assert "doesn't exist" in result or "not exist" in result or "doesn't exist" in result
+    async def _identity_ok(user_uuid):
+        return {
+            "private_chunks_count": 7,
+            "born_on": "2026-04-14T10:00:00+00:00",
+        }
+
+    monkeypatch.setattr(brain_tools, "search_mini_brain", _search_none)
+    monkeypatch.setattr(brain_tools, "get_mini_brain_identity", _identity_ok)
+
+    result = await tool_recall("auth patterns")
+    assert "auth patterns" in result
+    assert "7 private chunks" in result
+    assert "semantic search isn't deployed yet" in result or "No matches found" in result
 
 
 # ---------------------------------------------------------------------------
