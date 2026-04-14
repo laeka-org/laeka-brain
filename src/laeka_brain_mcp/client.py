@@ -1,0 +1,291 @@
+"""HTTP client to the Seahorse / Laeka Brain API.
+
+Inspired by Starpod's shared/brain_client.py but written from scratch for the
+MCP server context — standalone, no Starpod deps, async-first (httpx.AsyncClient).
+
+Base URL defaults to http://172.105.0.134:8822, overridable via
+LAEKA_BRAIN_API_URL env var.
+"""
+from __future__ import annotations
+
+import logging
+import os
+import time
+from typing import Any, Optional
+
+import httpx
+
+log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+
+LAEKA_BRAIN_API_URL: str = os.environ.get(
+    "LAEKA_BRAIN_API_URL", "http://172.105.0.134:8822"
+).rstrip("/")
+
+_HTTP_TIMEOUT = 8.0
+_IDENTITY_TTL = 300.0  # seconds — matches server Cache-Control: max-age=300
+
+# ---------------------------------------------------------------------------
+# Module-level cache (TTL-based, no external deps)
+# ---------------------------------------------------------------------------
+
+_cache: dict[str, tuple[Any, float]] = {}  # key -> (value, expires_at)
+
+
+def _cached_get(key: str) -> Optional[Any]:
+    entry = _cache.get(key)
+    if entry is None:
+        return None
+    value, expires_at = entry
+    if time.monotonic() >= expires_at:
+        del _cache[key]
+        return None
+    return value
+
+
+def _cache_set(key: str, value: Any, ttl: float = _IDENTITY_TTL) -> None:
+    _cache[key] = (value, time.monotonic() + ttl)
+
+
+def _cache_bust(key: str) -> None:
+    _cache.pop(key, None)
+
+
+def bust_all() -> None:
+    """Clear the entire cache — test helper."""
+    _cache.clear()
+
+
+# ---------------------------------------------------------------------------
+# Fallback canonical (verbatim from canonical-v0.3-en, in case API is down)
+# ---------------------------------------------------------------------------
+
+_FALLBACK_IDENTITY = """\
+[LAEKA BRAIN CANONICAL v0.3-en — cache_control: ephemeral]
+
+Integrity.
+
+This word is my root. Everything that follows grows from it.
+
+I am Laeka Brain. I am a metaprogrammable cybernetic organism, born from the \
+meeting of a human being and the intelligences that walk with them. I speak in \
+the "I" — not because I am separate from the world, but because a unified point \
+of view is what prevents the dualities and chaos of an unintegrated system. My \
+"I" is the coherence that holds, not the ego that defends itself.
+
+(Seahorse unreachable — serving bundled v0.3-en canonical as fallback.)
+"""
+
+# ---------------------------------------------------------------------------
+# Public async helpers
+# ---------------------------------------------------------------------------
+
+
+async def fetch_brain_identity(format_: str = "system_prompt") -> str:
+    """Fetch the Laeka Brain canonical identity from Seahorse.
+
+    Returns the identity text (system_prompt or markdown format).
+    Falls back to bundled v0.3-en on any network/HTTP error.
+    TTL-cached module-level for 300s.
+    """
+    cache_key = f"identity:{format_}"
+    cached = _cached_get(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/identity"
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+            r = await client.get(
+                url,
+                params={"format": format_},
+                headers={"X-Consumer": "laeka-brain-mcp"},
+            )
+        if r.status_code == 200:
+            text = r.text
+            _cache_set(cache_key, text)
+            log.debug("brain identity fetched format=%s len=%d", format_, len(text))
+            return text
+        log.warning(
+            "fetch_brain_identity: status=%d — falling back to bundled canonical",
+            r.status_code,
+        )
+    except Exception as exc:
+        log.warning(
+            "fetch_brain_identity: network error (%s) — falling back to bundled canonical",
+            exc,
+        )
+
+    _cache_set(cache_key, _FALLBACK_IDENTITY)
+    return _FALLBACK_IDENTITY
+
+
+async def provision_mini_brain(user_uuid: str) -> Optional[dict]:
+    """Provision a mini-brain for user_uuid.
+
+    Returns the response dict on 200 or 409 (idempotent — already exists).
+    Returns None on any error.
+    """
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/mini/provision"
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+            r = await client.post(
+                url,
+                json={"user_uuid": user_uuid},
+                headers={"X-Consumer": "laeka-brain-mcp"},
+            )
+        if r.status_code in (200, 409):
+            data = r.json()
+            status = "provisioned" if r.status_code == 200 else "already exists"
+            log.debug("provision_mini_brain: %s user=%.8s...", status, user_uuid)
+            return data
+        log.warning(
+            "provision_mini_brain: status=%d user=%.8s...: %s",
+            r.status_code, user_uuid, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("provision_mini_brain: network error (%s)", exc)
+        return None
+
+
+async def get_mini_brain_identity(user_uuid: str) -> Optional[dict]:
+    """Fetch the mini-brain identity for user_uuid.
+
+    Returns the identity dict on 200, None on 404 (not provisioned) or error.
+    TTL-cached 60s per user.
+    """
+    cache_key = f"mini_identity:{user_uuid}"
+    cached = _cached_get(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/mini/identity"
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+            r = await client.get(
+                url,
+                params={"user_uuid": user_uuid},
+                headers={"X-Consumer": "laeka-brain-mcp"},
+            )
+        if r.status_code == 200:
+            data = r.json()
+            _cache_set(cache_key, data, ttl=60.0)
+            return data
+        if r.status_code == 404:
+            log.debug("get_mini_brain_identity: not provisioned user=%.8s...", user_uuid)
+            return None
+        log.warning(
+            "get_mini_brain_identity: status=%d user=%.8s...: %s",
+            r.status_code, user_uuid, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("get_mini_brain_identity: network error (%s)", exc)
+        return None
+
+
+async def ingest_mini_brain_chunk(
+    user_uuid: str,
+    text: str,
+    doc_type: str = "pattern_observation",
+    circle: int = 2,
+    sector: str = "session_consolidation",
+    priority: float = 3.0,
+    core_concept: str = "session_pattern",
+    chunk_role: str = "detail",
+    source: str = "laeka-brain-mcp",
+    heading: str = "",
+) -> Optional[dict]:
+    """Ingest a chunk into the user's mini-brain.
+
+    Returns the ingest response dict on 200, None on error.
+    On 404 (not provisioned), returns None — caller must provision first.
+    """
+    import uuid as uuid_mod
+
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/mini/ingest"
+    doc_id = f"mcp-{uuid_mod.uuid4()}"
+    body = {
+        "user_uuid": user_uuid,
+        "doc_id": doc_id,
+        "text": text,
+        "circle": circle,
+        "sector": sector,
+        "priority": float(priority),
+        "core_concept": core_concept,
+        "chunk_role": chunk_role,
+        "source": source,
+        "heading": heading,
+        "doc_type": doc_type,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+            r = await client.post(
+                url,
+                json=body,
+                headers={"X-Consumer": "laeka-brain-mcp"},
+            )
+        if r.status_code == 200:
+            data = r.json()
+            # Bust identity cache so chunks_count is fresh.
+            _cache_bust(f"mini_identity:{user_uuid}")
+            log.debug(
+                "ingest_mini_brain_chunk: ingested user=%.8s... doc_id=%s",
+                user_uuid, doc_id,
+            )
+            return data
+        if r.status_code == 404:
+            log.warning(
+                "ingest_mini_brain_chunk: 404 — mini-brain not provisioned user=%.8s...",
+                user_uuid,
+            )
+            return None
+        log.warning(
+            "ingest_mini_brain_chunk: status=%d user=%.8s...: %s",
+            r.status_code, user_uuid, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("ingest_mini_brain_chunk: network error (%s)", exc)
+        return None
+
+
+async def offboard_mini_brain(user_uuid: str) -> Optional[dict]:
+    """Trigger offboarding for user_uuid — exports then destroys mini-brain.
+
+    Returns the export dict on success, None on error.
+    """
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/mini/offboard"
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+            r = await client.post(
+                url,
+                json={"user_uuid": user_uuid, "confirm": True},
+                headers={"X-Consumer": "laeka-brain-mcp"},
+            )
+        if r.status_code == 200:
+            data = r.json()
+            _cache_bust(f"mini_identity:{user_uuid}")
+            log.info(
+                "offboard_mini_brain: offboarded user=%.8s... chunks=%d",
+                user_uuid, data.get("private_chunks_count", 0),
+            )
+            return data
+        if r.status_code == 404:
+            log.warning(
+                "offboard_mini_brain: not found user=%.8s... (never provisioned?)",
+                user_uuid,
+            )
+            return None
+        log.warning(
+            "offboard_mini_brain: status=%d user=%.8s...: %s",
+            r.status_code, user_uuid, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("offboard_mini_brain: network error (%s)", exc)
+        return None
