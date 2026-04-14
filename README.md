@@ -13,7 +13,7 @@ Four tools, added to Claude Code via a single entry in `~/.claude/.mcp.json`:
 - **`query`** — ask what Laeka Brain says about a concept or question
 - **`reflect`** — share a situation; Brain holds the mirror and asks the question you haven't asked yourself
 - **`consolidate`** — save a session insight to your personal mini-brain
-- **`recall`** — check what your mini-brain has accumulated (semantic search in Phase 4)
+- **`recall`** — semantic search across your personal mini-brain — find patterns and insights by natural language query
 
 The four OmniQ lenses — MONADE, SYMBIOTE, ARCHITECT, EMPATH — operate through all four tools. You will feel them before you name them.
 
@@ -99,13 +99,15 @@ Stores the text as a `pattern_observation` in your personal memory cell. If your
 
 ### `recall`
 
-Check your accumulated memory.
+Semantic search across your personal mini-brain.
 
 ```
 Use recall with query="What did I learn about naming last week?"
 ```
 
-In Phase 3: returns your chunk count and the date your mini-brain was born. Semantic search across your stored patterns arrives in Phase 4.
+Searches your stored patterns using vector similarity and returns the top matches ranked by relevance score. Each result shows the text snippet (up to 200 chars), sector, doc type, and creation date.
+
+If the search endpoint is not yet available, returns your chunk count as a fallback so you always know where you stand.
 
 ---
 
