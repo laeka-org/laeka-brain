@@ -11,6 +11,7 @@ from .client import (
     get_mini_brain_identity,
     ingest_mini_brain_chunk,
     provision_mini_brain,
+    search_mini_brain,
 )
 from .config import get_user_uuid
 
@@ -152,37 +153,66 @@ async def tool_consolidate(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 RECALL_DESCRIPTION = (
-    "Query your personal mini-brain. "
-    "Ask what patterns you've accumulated around a topic. "
-    "(Semantic search arrives in Phase 4 — for now, returns your memory cell status.)"
+    "Semantic search in your personal mini-brain. "
+    "Find patterns, conversations, or insights you've consolidated previously."
 )
+
+_RECALL_TEXT_MAX_CHARS = 200
 
 
 async def tool_recall(query: str) -> str:
-    """Return mini-brain status and a Phase 4 note about semantic search.
+    """Semantic search in the user's mini-brain using /v1/brain/mini/search.
 
-    Phase 3 minimal implementation: shows chunk count + born_on.
-    Semantic query will be wired in Phase 4.
+    Falls back gracefully if the endpoint is not yet live or returns no results.
     """
     user_uuid = get_user_uuid()
-    identity = await get_mini_brain_identity(user_uuid)
 
-    if identity is None:
+    response = await search_mini_brain(user_uuid=user_uuid, query=query, k=5)
+
+    if response is None:
+        # Endpoint not live yet or mini-brain not provisioned — try identity for context.
+        identity = await get_mini_brain_identity(user_uuid)
+        if identity is None:
+            return (
+                f"Your mini-brain doesn't exist yet. "
+                f"Run `consolidate` at the end of a session to initialize it.\n\n"
+                f"*(Query: \"{query}\" — nothing stored yet.)*"
+            )
+        chunks = identity.get("private_chunks_count", 0)
+        born_on = identity.get("born_on", "unknown")
+        born_on_short = born_on[:10] if born_on != "unknown" else "unknown"
         return (
-            f"Your mini-brain doesn't exist yet. "
-            f"Run `consolidate` at the end of a session to initialize it.\n\n"
-            f"*(Query: \"{query}\" — nothing stored yet.)*"
+            f'No matches found in your mini-brain for "{query}". '
+            f"(Or semantic search isn't deployed yet — try again in a few minutes.)\n\n"
+            f"Your mini-brain has **{chunks} private chunk{'s' if chunks != 1 else ''}** "
+            f"accumulated since {born_on_short}."
         )
 
-    chunks = identity.get("private_chunks_count", 0)
-    born_on = identity.get("born_on", "unknown")
-    parent_version = identity.get("parent_version", "unknown")
+    results = response.get("results", [])
+    total = response.get("total_chunks_in_brain", 0)
 
-    return (
-        f"Your mini-brain has **{chunks} private chunk{'s' if chunks != 1 else ''}** "
-        f"accumulated since {born_on[:10] if born_on != 'unknown' else 'unknown'}. "
-        f"Parent canonical: {parent_version}.\n\n"
-        f"*(Query: \"{query}\")*\n\n"
-        "Semantic search across your stored patterns arrives in Phase 4. "
-        "Until then, use `consolidate` to keep building your memory cell."
-    )
+    if not results:
+        return (
+            f'No matches found in your mini-brain for "{query}".\n\n'
+            f"Your mini-brain has **{total} private chunk{'s' if total != 1 else ''}** stored. "
+            "Try a different query or use `consolidate` to add more patterns."
+        )
+
+    lines = [f'Found **{len(results)} result{"s" if len(results) != 1 else ""}** in your mini-brain for "{query}":\n']
+    for i, hit in enumerate(results, start=1):
+        score = hit.get("score", 0.0)
+        text = hit.get("text", "")
+        if len(text) > _RECALL_TEXT_MAX_CHARS:
+            text = text[:_RECALL_TEXT_MAX_CHARS].rstrip() + "…"
+        sector = hit.get("sector", "—")
+        doc_type = hit.get("doc_type", "—")
+        created_at = (hit.get("created_at") or "—")[:10]
+        lines.append(
+            f"{i}. [score {score:.2f}] {text}\n"
+            f"   sector: {sector}, doc_type: {doc_type}, created: {created_at}\n"
+        )
+
+    if total:
+        lines.append(f"\n*{total} total chunk{'s' if total != 1 else ''} in your mini-brain.*")
+
+    return "\n".join(lines)
