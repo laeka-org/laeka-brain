@@ -2,20 +2,28 @@
 
 A cognitive layer for the AI you already use.
 
-This MCP server connects your Claude Code environment to Laeka Brain — the OmniQ protocol made available through four tools. It is a context provider. It does not call an LLM. It does not store your conversations. It returns context that Claude uses natively.
+This MCP server connects your Claude Code environment to Laeka Brain — the OmniQ protocol made available through six tools. It is a context provider. It does not call an LLM. It does not store your conversations. It returns context that Claude uses natively.
 
 ---
 
 ## What it is
 
-Four tools, added to Claude Code via a single entry in `~/.claude/.mcp.json`:
+Six tools, added to Claude Code via a single entry in `~/.claude/.mcp.json`:
 
 - **`query`** — ask what Laeka Brain says about a concept or question
 - **`reflect`** — share a situation; Brain holds the mirror and asks the question you haven't asked yourself
 - **`consolidate`** — save a session insight to your personal mini-brain
 - **`recall`** — semantic search across your personal mini-brain — find patterns and insights by natural language query
+- **`list_brain_skills`** — browse the skill marketplace of an auxiliary brain (default: laeka-code)
+- **`get_brain_skill`** — retrieve and apply a specific skill by name (e.g. `systematic-debugging`, `verification-before-completion`)
 
-The four OmniQ lenses — MONADE, SYMBIOTE, ARCHITECT, EMPATH — operate through all four tools. You will feel them before you name them.
+The four OmniQ lenses — MONADE, SYMBIOTE, ARCHITECT, EMPATH — operate through all six tools. You will feel them before you name them.
+
+---
+
+## v0.2.0 — brain skills marketplace
+
+v0.2.0 adds two new tools (`list_brain_skills`, `get_brain_skill`) that expose the Laeka Code skill marketplace — 28 rebranded engineering protocols available directly in Claude Code. Query, list, and apply skills from auxiliary brains like Laeka Code.
 
 ---
 

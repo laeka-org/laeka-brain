@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from .client import (
     fetch_brain_identity,
+    get_brain_skill,
     get_mini_brain_identity,
     ingest_mini_brain_chunk,
+    list_brain_skills,
     provision_mini_brain,
     search_mini_brain,
 )
@@ -158,6 +160,106 @@ RECALL_DESCRIPTION = (
 )
 
 _RECALL_TEXT_MAX_CHARS = 200
+
+
+# ---------------------------------------------------------------------------
+# Tool: list_brain_skills
+# ---------------------------------------------------------------------------
+
+LIST_BRAIN_SKILLS_DESCRIPTION = (
+    "Browse the skill marketplace of an auxiliary brain. "
+    "Returns a formatted list of available skills with name, category, legacy name, "
+    "and a short summary. Default brain is 'laeka-code' (the Laeka Code coder brain). "
+    "Use get_brain_skill to retrieve the full content of a specific skill."
+)
+
+
+async def tool_list_brain_skills(brain: str = "laeka-code") -> str:
+    """List all skills available in an auxiliary brain.
+
+    Returns a markdown-formatted catalogue sorted by category then name.
+    Falls back gracefully if the brain store is unavailable.
+    """
+    response = await list_brain_skills(brain=brain)
+
+    if response is None:
+        return (
+            f"Could not retrieve skills for brain '{brain}'. "
+            "The brain store may be unavailable or the brain ID may be incorrect. "
+            "Known auxiliary brains: laeka-code."
+        )
+
+    total = response.get("total_skills", 0)
+    skills = response.get("skills", [])
+
+    if not skills:
+        return f"Brain '{brain}' has no skills indexed yet. Run the ingest script first."
+
+    lines = [f"## {brain} — {total} skill{'s' if total != 1 else ''} available\n"]
+    current_category = None
+    for skill in skills:
+        category = skill.get("category", "—")
+        name = skill.get("name", "—")
+        legacy = skill.get("legacy_name", "")
+        summary = skill.get("summary", "")
+        chars = skill.get("chars", 0)
+
+        if category != current_category:
+            lines.append(f"\n### {category}\n")
+            current_category = category
+
+        legacy_note = f" *(was: {legacy})*" if legacy else ""
+        lines.append(f"- **{name}**{legacy_note} — {summary} `[{chars} chars]`")
+
+    lines.append(
+        f"\n\n*Use `get_brain_skill(brain=\"{brain}\", skill=\"<name>\")` to apply any skill.*"
+    )
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Tool: get_brain_skill
+# ---------------------------------------------------------------------------
+
+GET_BRAIN_SKILL_DESCRIPTION = (
+    "Retrieve the full content of a specific skill from an auxiliary brain. "
+    "Returns the rebranded skill markdown — ready to apply as a cognitive framework. "
+    "Use list_brain_skills first to discover available skill names. "
+    "Default brain is 'laeka-code'. "
+    "Example: get_brain_skill(skill='systematic-debugging') retrieves the root-cause "
+    "debugging protocol."
+)
+
+
+async def tool_get_brain_skill(skill: str, brain: str = "laeka-code") -> str:
+    """Retrieve the full content of a skill from an auxiliary brain.
+
+    Returns the rebranded skill content as markdown, prefixed with metadata.
+    Falls back gracefully if the skill is not found.
+    """
+    response = await get_brain_skill(skill=skill, brain=brain)
+
+    if response is None:
+        return (
+            f"Skill '{skill}' not found in brain '{brain}'. "
+            f"Use list_brain_skills(brain=\"{brain}\") to see available skills."
+        )
+
+    name = response.get("name", skill)
+    category = response.get("category", "—")
+    legacy = response.get("legacy_name", "")
+    content = response.get("content", "")
+    chars = response.get("chars", 0)
+
+    legacy_note = f"\n**Legacy name:** {legacy}" if legacy else ""
+    header = (
+        f"## Skill: {name}\n"
+        f"**Brain:** {brain}  \n"
+        f"**Category:** {category}{legacy_note}  \n"
+        f"**Size:** {chars} chars\n\n"
+        "---\n\n"
+    )
+    return header + content
 
 
 async def tool_recall(query: str) -> str:

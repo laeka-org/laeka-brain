@@ -22,10 +22,14 @@ from mcp.server.fastmcp import FastMCP
 
 from .tools import (
     CONSOLIDATE_DESCRIPTION,
+    GET_BRAIN_SKILL_DESCRIPTION,
+    LIST_BRAIN_SKILLS_DESCRIPTION,
     QUERY_DESCRIPTION,
     RECALL_DESCRIPTION,
     REFLECT_DESCRIPTION,
     tool_consolidate,
+    tool_get_brain_skill,
+    tool_list_brain_skills,
     tool_query,
     tool_recall,
     tool_reflect,
@@ -64,6 +68,18 @@ async def consolidate(text: str) -> str:
 async def recall(query: str) -> str:  # noqa: F811
     """Query your personal mini-brain memory."""
     return await tool_recall(query)
+
+
+@mcp.tool(description=LIST_BRAIN_SKILLS_DESCRIPTION)
+async def list_brain_skills(brain: str = "laeka-code") -> str:
+    """Browse the skill marketplace of an auxiliary brain."""
+    return await tool_list_brain_skills(brain=brain)
+
+
+@mcp.tool(description=GET_BRAIN_SKILL_DESCRIPTION)
+async def get_brain_skill(skill: str, brain: str = "laeka-code") -> str:
+    """Retrieve and apply a specific skill from an auxiliary brain."""
+    return await tool_get_brain_skill(skill=skill, brain=brain)
 
 
 def main() -> None:

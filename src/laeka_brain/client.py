@@ -305,6 +305,74 @@ async def search_mini_brain(
         return None
 
 
+async def list_brain_skills(
+    brain: str = "laeka-code",
+    timeout: float = 10.0,
+) -> Optional[dict]:
+    """Fetch the skills list from an auxiliary brain.
+
+    GET /v1/brain/{brain}/skills
+    Returns the response dict on 200, None on any error (404, network, timeout).
+    Results are NOT cached — the list changes rarely but freshness matters for discovery.
+    """
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/{brain}/skills"
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.get(url, headers={"X-Consumer": "laeka-brain"})
+        if r.status_code == 200:
+            data = r.json()
+            log.debug(
+                "list_brain_skills: brain=%s total=%d",
+                brain, data.get("total_skills", 0),
+            )
+            return data
+        log.warning(
+            "list_brain_skills: status=%d brain=%s: %s",
+            r.status_code, brain, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("list_brain_skills: network error (%s)", exc)
+        return None
+
+
+async def get_brain_skill(
+    skill: str,
+    brain: str = "laeka-code",
+    timeout: float = 10.0,
+) -> Optional[dict]:
+    """Fetch the full content of a single skill from an auxiliary brain.
+
+    GET /v1/brain/{brain}/skills/{skill}
+    Returns the response dict on 200, None on 404 or any error.
+    """
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/{brain}/skills/{skill}"
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.get(url, headers={"X-Consumer": "laeka-brain"})
+        if r.status_code == 200:
+            data = r.json()
+            log.debug(
+                "get_brain_skill: brain=%s skill=%s chars=%d",
+                brain, skill, data.get("chars", 0),
+            )
+            return data
+        if r.status_code == 404:
+            log.debug(
+                "get_brain_skill: 404 — brain=%s skill=%s not found",
+                brain, skill,
+            )
+            return None
+        log.warning(
+            "get_brain_skill: status=%d brain=%s skill=%s: %s",
+            r.status_code, brain, skill, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("get_brain_skill: network error (%s)", exc)
+        return None
+
+
 async def offboard_mini_brain(user_uuid: str) -> Optional[dict]:
     """Trigger offboarding for user_uuid — exports then destroys mini-brain.
 
