@@ -28,7 +28,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://laeka.ai"
-Source = "https://github.com/laeka-ai/laeka-brain-mcp"
+Documentation = "https://laeka.ai/canonical"
 
 [project.optional-dependencies]
 dev = [
