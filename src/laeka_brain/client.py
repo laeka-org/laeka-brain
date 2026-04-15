@@ -231,11 +231,17 @@ async def ingest_satellite_chunk(
         "doc_type": doc_type,
     }
     try:
+        # Phase 4+: Bearer required on satellite endpoints.
+        api_key = get_api_key()
+        if api_key:
+            headers = {"X-Consumer": "laeka-brain", "Authorization": f"Bearer {api_key}"}
+        else:
+            headers = {"X-Consumer": "laeka-brain", "X-User-UUID": get_user_uuid()}
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
             r = await client.post(
                 url,
                 json=body,
-                headers={"X-Consumer": "laeka-brain"},
+                headers=headers,
             )
         if r.status_code == 200:
             data = r.json()
@@ -279,11 +285,17 @@ async def search_satellite(
 
     url = f"{LAEKA_BRAIN_API_URL}/v1/brain/satellite/search"
     try:
+        # Phase 4+: Bearer required on satellite endpoints.
+        api_key = get_api_key()
+        if api_key:
+            headers = {"X-Consumer": "laeka-brain", "Authorization": f"Bearer {api_key}"}
+        else:
+            headers = {"X-Consumer": "laeka-brain", "X-User-UUID": get_user_uuid()}
         async with httpx.AsyncClient(timeout=timeout) as client:
             r = await client.post(
                 url,
                 json={"user_uuid": user_uuid, "query": query, "k": k},
-                headers={"X-Consumer": "laeka-brain"},
+                headers=headers,
             )
         if r.status_code == 200:
             data = r.json()
@@ -618,11 +630,17 @@ async def offboard_satellite(user_uuid: str) -> Optional[dict]:
     """
     url = f"{LAEKA_BRAIN_API_URL}/v1/brain/satellite/offboard"
     try:
+        # Phase 4+: Bearer required on satellite endpoints.
+        api_key = get_api_key()
+        if api_key:
+            headers = {"X-Consumer": "laeka-brain", "Authorization": f"Bearer {api_key}"}
+        else:
+            headers = {"X-Consumer": "laeka-brain", "X-User-UUID": get_user_uuid()}
         async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
             r = await client.post(
                 url,
                 json={"user_uuid": user_uuid, "confirm": True},
-                headers={"X-Consumer": "laeka-brain"},
+                headers=headers,
             )
         if r.status_code == 200:
             data = r.json()
