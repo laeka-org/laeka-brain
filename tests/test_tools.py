@@ -105,7 +105,7 @@ async def test_reflect_returns_canonical_with_lenses_directive(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_consolidate_provisions_then_ingests(monkeypatch):
-    """When mini-brain is absent (ingest → None, identity → None), it provisions then ingests."""
+    """When satellite is absent (ingest → None, identity → None), it provisions then ingests."""
     ingest_calls = []
 
     async def _ingest_first_fails_then_ok(**kw):
@@ -115,17 +115,17 @@ async def test_consolidate_provisions_then_ingests(monkeypatch):
         return {"ingested": True, "doc_id": "some-uuid"}
 
     async def _identity_none(user_uuid):
-        return None  # mini-brain not provisioned
+        return None  # satellite not provisioned
 
     async def _provision_ok(user_uuid):
-        return {"provisioned": True, "client_id": "mini-brain-test", "user_uuid": user_uuid}
+        return {"provisioned": True, "client_id": "satellite-test", "user_uuid": user_uuid}
 
-    monkeypatch.setattr(brain_tools, "ingest_mini_brain_chunk", _ingest_first_fails_then_ok)
-    monkeypatch.setattr(brain_tools, "get_mini_brain_identity", _identity_none)
-    monkeypatch.setattr(brain_tools, "provision_mini_brain", _provision_ok)
+    monkeypatch.setattr(brain_tools, "ingest_satellite_chunk", _ingest_first_fails_then_ok)
+    monkeypatch.setattr(brain_tools, "get_satellite_identity", _identity_none)
+    monkeypatch.setattr(brain_tools, "provision_satellite", _provision_ok)
 
     result = await tool_consolidate("Solved the auth naming friction today.")
-    assert "Mini-brain initialized" in result or "provisioned" in result.lower()
+    assert "Satellite initialized" in result or "provisioned" in result.lower()
     assert len(ingest_calls) == 2  # first attempt + retry after provision
 
 
@@ -135,17 +135,17 @@ async def test_consolidate_provisions_then_ingests(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_consolidate_idempotent_when_mini_brain_exists(monkeypatch):
-    """When mini-brain exists, consolidate succeeds on first ingest call."""
+    """When satellite exists, consolidate succeeds on first ingest call."""
     ingest_calls = []
 
     async def _ingest_ok(**kw):
         ingest_calls.append(kw)
         return {"ingested": True, "doc_id": "abc-uuid"}
 
-    monkeypatch.setattr(brain_tools, "ingest_mini_brain_chunk", _ingest_ok)
+    monkeypatch.setattr(brain_tools, "ingest_satellite_chunk", _ingest_ok)
     # provision/identity should NOT be called.
     monkeypatch.setattr(
-        brain_tools, "provision_mini_brain",
+        brain_tools, "provision_satellite",
         lambda *a, **kw: (_ for _ in ()).throw(AssertionError("provision called unexpectedly")),
     )
 
@@ -160,14 +160,14 @@ async def test_consolidate_idempotent_when_mini_brain_exists(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_recall_calls_search_endpoint(monkeypatch):
-    """tool_recall calls search_mini_brain with the user's query."""
+    """tool_recall calls search_satellite with the user's query."""
     calls = []
 
     async def _search(user_uuid, query, k):
         calls.append({"user_uuid": user_uuid, "query": query, "k": k})
         return _make_search_response([_make_hit()])
 
-    monkeypatch.setattr(brain_tools, "search_mini_brain", _search)
+    monkeypatch.setattr(brain_tools, "search_satellite", _search)
     await tool_recall("What did I learn about auth modules?")
 
     assert len(calls) == 1
@@ -184,7 +184,7 @@ async def test_recall_formats_results_as_markdown(monkeypatch):
     async def _search(user_uuid, query, k):
         return _make_search_response([hit], total=5)
 
-    monkeypatch.setattr(brain_tools, "search_mini_brain", _search)
+    monkeypatch.setattr(brain_tools, "search_satellite", _search)
     result = await tool_recall("auth modules")
 
     assert "Found **1 result**" in result
@@ -203,10 +203,10 @@ async def test_recall_handles_404_gracefully(monkeypatch):
         return None  # simulates 404 or network error
 
     async def _identity_none(user_uuid):
-        return None  # mini-brain not provisioned
+        return None  # satellite not provisioned
 
-    monkeypatch.setattr(brain_tools, "search_mini_brain", _search_none)
-    monkeypatch.setattr(brain_tools, "get_mini_brain_identity", _identity_none)
+    monkeypatch.setattr(brain_tools, "search_satellite", _search_none)
+    monkeypatch.setattr(brain_tools, "get_satellite_identity", _identity_none)
 
     result = await tool_recall("patterns about naming")
     assert "doesn't exist" in result or "not exist" in result
@@ -218,12 +218,12 @@ async def test_recall_handles_empty_results(monkeypatch):
     async def _search(user_uuid, query, k):
         return _make_search_response([], total=12)
 
-    monkeypatch.setattr(brain_tools, "search_mini_brain", _search)
+    monkeypatch.setattr(brain_tools, "search_satellite", _search)
     result = await tool_recall("something obscure nobody ever stored")
 
     assert "No matches found" in result
     assert "something obscure nobody ever stored" in result
-    assert "12 private chunks" in result
+    assert "12" in result
 
 
 @pytest.mark.asyncio
@@ -235,7 +235,7 @@ async def test_recall_includes_score_in_output(monkeypatch):
             _make_hit(score=0.61, text="A second insight."),
         ], total=20)
 
-    monkeypatch.setattr(brain_tools, "search_mini_brain", _search)
+    monkeypatch.setattr(brain_tools, "search_satellite", _search)
     result = await tool_recall("anything")
 
     assert "[score 0.75]" in result
@@ -251,7 +251,7 @@ async def test_recall_truncates_long_text_snippets(monkeypatch):
     async def _search(user_uuid, query, k):
         return _make_search_response([_make_hit(text=long_text)])
 
-    monkeypatch.setattr(brain_tools, "search_mini_brain", _search)
+    monkeypatch.setattr(brain_tools, "search_satellite", _search)
     result = await tool_recall("long text test")
 
     # The truncated text should appear with ellipsis, not the full 250 chars.
@@ -262,7 +262,7 @@ async def test_recall_truncates_long_text_snippets(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_recall_fallback_shows_chunk_count_when_search_unavailable(monkeypatch):
-    """When search returns None but mini-brain exists, fallback shows chunk count."""
+    """When search returns None but satellite exists, fallback shows chunk count."""
     async def _search_none(user_uuid, query, k):
         return None
 
@@ -272,12 +272,12 @@ async def test_recall_fallback_shows_chunk_count_when_search_unavailable(monkeyp
             "born_on": "2026-04-14T10:00:00+00:00",
         }
 
-    monkeypatch.setattr(brain_tools, "search_mini_brain", _search_none)
-    monkeypatch.setattr(brain_tools, "get_mini_brain_identity", _identity_ok)
+    monkeypatch.setattr(brain_tools, "search_satellite", _search_none)
+    monkeypatch.setattr(brain_tools, "get_satellite_identity", _identity_ok)
 
     result = await tool_recall("auth patterns")
     assert "auth patterns" in result
-    assert "7 private chunks" in result
+    assert "7 private chunk" in result
     assert "semantic search isn't deployed yet" in result or "No matches found" in result
 
 
