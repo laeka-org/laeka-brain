@@ -329,6 +329,19 @@ async def list_brain_skills(
                 brain, data.get("total_skills", 0),
             )
             return data
+        if r.status_code == 403:
+            try:
+                detail = r.json().get("detail", "")
+            except Exception:
+                detail = ""
+            return {
+                "error": "subscription_required",
+                "message": detail or (
+                    f"Brain '{brain}' requires an active addon subscription. "
+                    "Upgrade at https://laeka.ai/pricing"
+                ),
+                "status": 403,
+            }
         log.warning(
             "list_brain_skills: status=%d brain=%s: %s",
             r.status_code, brain, r.text[:200],
@@ -367,6 +380,19 @@ async def get_brain_skill(
                 brain, skill,
             )
             return None
+        if r.status_code == 403:
+            try:
+                detail = r.json().get("detail", "")
+            except Exception:
+                detail = ""
+            return {
+                "error": "subscription_required",
+                "message": detail or (
+                    f"Brain '{brain}' requires an active addon subscription. "
+                    "Upgrade at https://laeka.ai/pricing"
+                ),
+                "status": 403,
+            }
         log.warning(
             "get_brain_skill: status=%d brain=%s skill=%s: %s",
             r.status_code, brain, skill, r.text[:200],

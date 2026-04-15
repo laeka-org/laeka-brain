@@ -21,6 +21,10 @@ The four OmniQ lenses — MONADE, SYMBIOTE, ARCHITECT, EMPATH — operate throug
 
 ---
 
+## v0.2.2 — Honest 403 on subscription_required
+
+v0.2.2: MCP tools now report `subscription_required` clearly on 403 instead of a generic "store unavailable" message. `list_brain_skills` and `get_brain_skill` both return `{"error": "subscription_required", "message": "...", "status": 403}` with an actionable upgrade link when the brain requires a paid addon.
+
 ## v0.2.1 — X-User-UUID header on brain skills calls
 
 v0.2.1 passes the `X-User-UUID` header on `list_brain_skills` and `get_brain_skill` calls for tier-gated access compatibility. Users on paid tiers no longer receive 403 when accessing auxiliary brain skills.
