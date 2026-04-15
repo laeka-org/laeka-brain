@@ -38,7 +38,7 @@ from .tools import (
 mcp = FastMCP(
     name="laeka-brain",
     instructions=(
-        "Laeka Brain — a cognitive layer built on the OmniQ protocol. "
+        "Laeka Brain — a cognitive layer built on the Laeka protocol. "
         "Four lenses: MONADE (unity beneath duality), SYMBIOTE (partnership), "
         "ARCHITECT (structure beneath content), EMPATH (presence before content). "
         "The server is a context provider. It never calls an LLM itself."

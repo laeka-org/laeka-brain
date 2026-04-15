@@ -51,7 +51,7 @@ async def tool_query(question: str) -> str:
 
 REFLECT_DESCRIPTION = (
     "Hold the mirror. Share a situation you're navigating — "
-    "Brain applies the four OmniQ lenses and asks the question "
+    "Brain applies the four Laeka lenses and asks the question "
     "that helps you see what you're not seeing. No advice. Just the mirror."
 )
 
