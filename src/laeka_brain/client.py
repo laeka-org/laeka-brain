@@ -3,7 +3,7 @@
 Inspired by Starpod's shared/brain_client.py but written from scratch for the
 MCP server context — standalone, no Starpod deps, async-first (httpx.AsyncClient).
 
-Base URL defaults to http://172.105.0.134:8822, overridable via
+Base URL defaults to https://laeka.ai, overridable via
 LAEKA_BRAIN_API_URL env var.
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 LAEKA_BRAIN_API_URL: str = os.environ.get(
-    "LAEKA_BRAIN_API_URL", "http://172.105.0.134:8822"
+    "LAEKA_BRAIN_API_URL", "https://laeka.ai"
 ).rstrip("/")
 
 _HTTP_TIMEOUT = 8.0

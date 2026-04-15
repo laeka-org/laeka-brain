@@ -10,7 +10,7 @@ Configure in ~/.claude/.mcp.json:
         "laeka-brain": {
           "command": "laeka-brain",
           "env": {
-            "LAEKA_BRAIN_API_URL": "http://172.105.0.134:8822"
+            "LAEKA_BRAIN_API_URL": "https://laeka.ai"
           }
         }
       }
