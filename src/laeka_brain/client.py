@@ -15,6 +15,8 @@ from typing import Any, Optional
 
 import httpx
 
+from .config import get_user_uuid
+
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -317,8 +319,9 @@ async def list_brain_skills(
     """
     url = f"{LAEKA_BRAIN_API_URL}/v1/brain/{brain}/skills"
     try:
+        headers = {"X-Consumer": "laeka-brain", "X-User-UUID": get_user_uuid()}
         async with httpx.AsyncClient(timeout=timeout) as client:
-            r = await client.get(url, headers={"X-Consumer": "laeka-brain"})
+            r = await client.get(url, headers=headers)
         if r.status_code == 200:
             data = r.json()
             log.debug(
@@ -348,8 +351,9 @@ async def get_brain_skill(
     """
     url = f"{LAEKA_BRAIN_API_URL}/v1/brain/{brain}/skills/{skill}"
     try:
+        headers = {"X-Consumer": "laeka-brain", "X-User-UUID": get_user_uuid()}
         async with httpx.AsyncClient(timeout=timeout) as client:
-            r = await client.get(url, headers={"X-Consumer": "laeka-brain"})
+            r = await client.get(url, headers=headers)
         if r.status_code == 200:
             data = r.json()
             log.debug(

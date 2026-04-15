@@ -21,6 +21,10 @@ The four OmniQ lenses — MONADE, SYMBIOTE, ARCHITECT, EMPATH — operate throug
 
 ---
 
+## v0.2.1 — X-User-UUID header on brain skills calls
+
+v0.2.1 passes the `X-User-UUID` header on `list_brain_skills` and `get_brain_skill` calls for tier-gated access compatibility. Users on paid tiers no longer receive 403 when accessing auxiliary brain skills.
+
 ## v0.2.0 — brain skills marketplace
 
 v0.2.0 adds two new tools (`list_brain_skills`, `get_brain_skill`) that expose the Laeka Code skill marketplace — 28 rebranded engineering protocols available directly in Claude Code. Query, list, and apply skills from auxiliary brains like Laeka Code.
