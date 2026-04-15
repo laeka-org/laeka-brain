@@ -9,9 +9,14 @@ from __future__ import annotations
 from .client import (
     fetch_brain_identity,
     get_brain_skill,
+    get_satellite_identity,
+    ingest_satellite_chunk,
+    list_brain_skills,
+    provision_satellite,
+    search_satellite,
+    # Legacy aliases — kept for backward compat with MCP clients 0.2.x
     get_mini_brain_identity,
     ingest_mini_brain_chunk,
-    list_brain_skills,
     provision_mini_brain,
     search_mini_brain,
 )
@@ -80,21 +85,22 @@ async def tool_reflect(situation: str) -> str:
 # ---------------------------------------------------------------------------
 
 CONSOLIDATE_DESCRIPTION = (
-    "Persist a session insight into your mini-brain. "
+    "Persist a session insight into your satellite — your private vector memory "
+    "connected to the Laeka Brain canonical. "
     "Pass a short summary of what was learned or discovered in this session. "
-    "Brain stores it as a private pattern in your personal memory cell."
+    "Brain stores it as a private pattern in your personal satellite."
 )
 
 
 async def tool_consolidate(text: str) -> str:
-    """Ingest a session summary into the user's mini-brain.
+    """Ingest a session summary into the user's satellite.
 
-    If the mini-brain is not yet provisioned (404), provisions first then ingests.
+    If the satellite is not yet provisioned (404), provisions first then ingests.
     Returns a short confirmation.
     """
     user_uuid = get_user_uuid()
 
-    result = await ingest_mini_brain_chunk(
+    result = await ingest_satellite_chunk(
         user_uuid=user_uuid,
         text=text,
         doc_type="pattern_observation",
@@ -107,18 +113,18 @@ async def tool_consolidate(text: str) -> str:
     )
 
     if result is None:
-        # Check if the mini-brain simply doesn't exist yet.
-        identity = await get_mini_brain_identity(user_uuid)
+        # Check if the satellite simply doesn't exist yet.
+        identity = await get_satellite_identity(user_uuid)
         if identity is None:
             # Provision and retry.
-            provisioned = await provision_mini_brain(user_uuid)
+            provisioned = await provision_satellite(user_uuid)
             if provisioned is None:
                 return (
                     "Could not consolidate — Seahorse is unreachable. "
                     "Your session insight was not stored. Try again when the service is available."
                 )
             # Retry ingest after provision.
-            result = await ingest_mini_brain_chunk(
+            result = await ingest_satellite_chunk(
                 user_uuid=user_uuid,
                 text=text,
                 doc_type="pattern_observation",
@@ -131,11 +137,11 @@ async def tool_consolidate(text: str) -> str:
             )
             if result is None:
                 return (
-                    "Mini-brain provisioned but ingest failed. "
+                    "Satellite provisioned but ingest failed. "
                     "Seahorse may be temporarily unavailable. Try again in a moment."
                 )
             return (
-                f"Mini-brain initialized and session consolidated. "
+                f"Satellite initialized and session consolidated. "
                 f"Your first private pattern is stored (doc_id: {result.get('doc_id', '—')})."
             )
         # Identity exists but ingest still failed — transient error.
@@ -146,7 +152,7 @@ async def tool_consolidate(text: str) -> str:
 
     return (
         f"Consolidated. "
-        f"Pattern stored in your mini-brain (doc_id: {result.get('doc_id', '—')})."
+        f"Pattern stored in your satellite (doc_id: {result.get('doc_id', '—')})."
     )
 
 
@@ -155,7 +161,7 @@ async def tool_consolidate(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 RECALL_DESCRIPTION = (
-    "Semantic search in your personal mini-brain. "
+    "Semantic search in your satellite — your private vector memory. "
     "Find patterns, conversations, or insights you've consolidated previously."
 )
 
@@ -263,20 +269,20 @@ async def tool_get_brain_skill(skill: str, brain: str = "laeka-code") -> str:
 
 
 async def tool_recall(query: str) -> str:
-    """Semantic search in the user's mini-brain using /v1/brain/mini/search.
+    """Semantic search in the user's satellite using /v1/brain/satellite/search.
 
     Falls back gracefully if the endpoint is not yet live or returns no results.
     """
     user_uuid = get_user_uuid()
 
-    response = await search_mini_brain(user_uuid=user_uuid, query=query, k=5)
+    response = await search_satellite(user_uuid=user_uuid, query=query, k=5)
 
     if response is None:
-        # Endpoint not live yet or mini-brain not provisioned — try identity for context.
-        identity = await get_mini_brain_identity(user_uuid)
+        # Endpoint not live yet or satellite not provisioned — try identity for context.
+        identity = await get_satellite_identity(user_uuid)
         if identity is None:
             return (
-                f"Your mini-brain doesn't exist yet. "
+                f"Your satellite doesn't exist yet. "
                 f"Run `consolidate` at the end of a session to initialize it.\n\n"
                 f"*(Query: \"{query}\" — nothing stored yet.)*"
             )
@@ -284,9 +290,9 @@ async def tool_recall(query: str) -> str:
         born_on = identity.get("born_on", "unknown")
         born_on_short = born_on[:10] if born_on != "unknown" else "unknown"
         return (
-            f'No matches found in your mini-brain for "{query}". '
+            f'No matches found in your satellite for "{query}". '
             f"(Or semantic search isn't deployed yet — try again in a few minutes.)\n\n"
-            f"Your mini-brain has **{chunks} private chunk{'s' if chunks != 1 else ''}** "
+            f"Your satellite has **{chunks} private chunk{'s' if chunks != 1 else ''}** "
             f"accumulated since {born_on_short}."
         )
 
@@ -295,12 +301,12 @@ async def tool_recall(query: str) -> str:
 
     if not results:
         return (
-            f'No matches found in your mini-brain for "{query}".\n\n'
-            f"Your mini-brain has **{total} private chunk{'s' if total != 1 else ''}** stored. "
+            f'No matches found in your satellite for "{query}".\n\n'
+            f"Your satellite has **{total} private chunk{'s' if total != 1 else ''}** stored. "
             "Try a different query or use `consolidate` to add more patterns."
         )
 
-    lines = [f'Found **{len(results)} result{"s" if len(results) != 1 else ""}** in your mini-brain for "{query}":\n']
+    lines = [f'Found **{len(results)} result{"s" if len(results) != 1 else ""}** in your satellite for "{query}":\n']
     for i, hit in enumerate(results, start=1):
         score = hit.get("score", 0.0)
         text = hit.get("text", "")
@@ -315,6 +321,6 @@ async def tool_recall(query: str) -> str:
         )
 
     if total:
-        lines.append(f"\n*{total} total chunk{'s' if total != 1 else ''} in your mini-brain.*")
+        lines.append(f"\n*{total} total chunk{'s' if total != 1 else ''} in your satellite.*")
 
     return "\n".join(lines)

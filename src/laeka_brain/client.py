@@ -125,9 +125,198 @@ async def fetch_brain_identity(format_: str = "system_prompt") -> str:
     return _FALLBACK_IDENTITY
 
 
+async def provision_satellite(user_uuid: str) -> Optional[dict]:
+    """Provision a satellite for user_uuid.
+
+    Canonical v0.3.0+ helper — calls /v1/brain/satellite/provision.
+    Returns the response dict on 200 or 409 (idempotent — already exists).
+    Returns None on any error.
+    """
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/satellite/provision"
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+            r = await client.post(
+                url,
+                json={"user_uuid": user_uuid},
+                headers={"X-Consumer": "laeka-brain"},
+            )
+        if r.status_code in (200, 409):
+            data = r.json()
+            status = "provisioned" if r.status_code == 200 else "already exists"
+            log.debug("provision_satellite: %s user=%.8s...", status, user_uuid)
+            api_key = data.get("api_key")
+            if api_key:
+                set_api_key(api_key)
+                log.debug("provision_satellite: API key stored")
+            return data
+        log.warning(
+            "provision_satellite: status=%d user=%.8s...: %s",
+            r.status_code, user_uuid, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("provision_satellite: network error (%s)", exc)
+        return None
+
+
+async def get_satellite_identity(user_uuid: str) -> Optional[dict]:
+    """Fetch the satellite identity for user_uuid.
+
+    Canonical v0.3.0+ helper — calls /v1/brain/satellite/identity.
+    Returns the identity dict on 200, None on 404 (not provisioned) or error.
+    TTL-cached 60s per user.
+    """
+    cache_key = f"satellite_identity:{user_uuid}"
+    cached = _cached_get(cache_key)
+    if cached is not None:
+        return cached
+
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/satellite/identity"
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+            r = await client.get(
+                url,
+                params={"user_uuid": user_uuid},
+                headers={"X-Consumer": "laeka-brain"},
+            )
+        if r.status_code == 200:
+            data = r.json()
+            _cache_set(cache_key, data, ttl=60.0)
+            return data
+        if r.status_code == 404:
+            log.debug("get_satellite_identity: not provisioned user=%.8s...", user_uuid)
+            return None
+        log.warning(
+            "get_satellite_identity: status=%d user=%.8s...: %s",
+            r.status_code, user_uuid, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("get_satellite_identity: network error (%s)", exc)
+        return None
+
+
+async def ingest_satellite_chunk(
+    user_uuid: str,
+    text: str,
+    doc_type: str = "pattern_observation",
+    circle: int = 2,
+    sector: str = "session_consolidation",
+    priority: float = 3.0,
+    core_concept: str = "session_pattern",
+    chunk_role: str = "detail",
+    source: str = "laeka-brain",
+    heading: str = "",
+) -> Optional[dict]:
+    """Ingest a chunk into the user's satellite.
+
+    Canonical v0.3.0+ helper — calls /v1/brain/satellite/ingest.
+    Returns the ingest response dict on 200, None on error.
+    """
+    import uuid as uuid_mod
+
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/satellite/ingest"
+    doc_id = f"mcp-{uuid_mod.uuid4()}"
+    body = {
+        "user_uuid": user_uuid,
+        "doc_id": doc_id,
+        "text": text,
+        "circle": circle,
+        "sector": sector,
+        "priority": float(priority),
+        "core_concept": core_concept,
+        "chunk_role": chunk_role,
+        "source": source,
+        "heading": heading,
+        "doc_type": doc_type,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+            r = await client.post(
+                url,
+                json=body,
+                headers={"X-Consumer": "laeka-brain"},
+            )
+        if r.status_code == 200:
+            data = r.json()
+            _cache_bust(f"satellite_identity:{user_uuid}")
+            _cache_bust(f"mini_identity:{user_uuid}")
+            log.debug(
+                "ingest_satellite_chunk: ingested user=%.8s... doc_id=%s",
+                user_uuid, doc_id,
+            )
+            return data
+        if r.status_code == 404:
+            log.warning(
+                "ingest_satellite_chunk: 404 — satellite not provisioned user=%.8s...",
+                user_uuid,
+            )
+            return None
+        log.warning(
+            "ingest_satellite_chunk: status=%d user=%.8s...: %s",
+            r.status_code, user_uuid, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("ingest_satellite_chunk: network error (%s)", exc)
+        return None
+
+
+async def search_satellite(
+    user_uuid: str,
+    query: str,
+    k: int = 5,
+    timeout: float = 10.0,
+) -> Optional[dict]:
+    """Semantic search in the user's satellite.
+
+    Canonical v0.3.0+ helper — calls /v1/brain/satellite/search.
+    Returns the response dict on 200, None on any error.
+    """
+    if not query or not query.strip():
+        log.warning("search_satellite: empty query — skipping")
+        return None
+
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/satellite/search"
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.post(
+                url,
+                json={"user_uuid": user_uuid, "query": query, "k": k},
+                headers={"X-Consumer": "laeka-brain"},
+            )
+        if r.status_code == 200:
+            data = r.json()
+            log.debug(
+                "search_satellite: %d results user=%.8s... query=%r",
+                len(data.get("results", [])), user_uuid, query,
+            )
+            return data
+        if r.status_code == 404:
+            log.debug(
+                "search_satellite: 404 — satellite not provisioned user=%.8s...", user_uuid
+            )
+            return None
+        if r.status_code == 422:
+            log.warning(
+                "search_satellite: 422 — validation error user=%.8s...: %s",
+                user_uuid, r.text[:200],
+            )
+            return None
+        log.warning(
+            "search_satellite: status=%d user=%.8s...: %s",
+            r.status_code, user_uuid, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("search_satellite: network error (%s)", exc)
+        return None
+
+
 async def provision_mini_brain(user_uuid: str) -> Optional[dict]:
     """Provision a mini-brain for user_uuid.
 
+    DEPRECATED: Use provision_satellite() — this is a legacy alias for MCP clients 0.2.x.
     Returns the response dict on 200 or 409 (idempotent — already exists).
     Returns None on any error.
     """
@@ -162,6 +351,7 @@ async def provision_mini_brain(user_uuid: str) -> Optional[dict]:
 async def get_mini_brain_identity(user_uuid: str) -> Optional[dict]:
     """Fetch the mini-brain identity for user_uuid.
 
+    DEPRECATED: Use get_satellite_identity() — this is a legacy alias for MCP clients 0.2.x.
     Returns the identity dict on 200, None on 404 (not provisioned) or error.
     TTL-cached 60s per user.
     """
@@ -209,6 +399,7 @@ async def ingest_mini_brain_chunk(
 ) -> Optional[dict]:
     """Ingest a chunk into the user's mini-brain.
 
+    DEPRECATED: Use ingest_satellite_chunk() — this is a legacy alias for MCP clients 0.2.x.
     Returns the ingest response dict on 200, None on error.
     On 404 (not provisioned), returns None — caller must provision first.
     """
@@ -269,6 +460,7 @@ async def search_mini_brain(
 ) -> Optional[dict]:
     """Semantic search in the user's mini-brain.
 
+    DEPRECATED: Use search_satellite() — this is a legacy alias for MCP clients 0.2.x.
     POST /v1/brain/mini/search with {user_uuid, query, k}.
     Returns the response dict on 200, None on any error (404, 422, network, timeout).
     """
@@ -418,9 +610,50 @@ async def get_brain_skill(
         return None
 
 
+async def offboard_satellite(user_uuid: str) -> Optional[dict]:
+    """Trigger offboarding for user_uuid — exports then destroys satellite.
+
+    Canonical v0.3.0+ helper — calls /v1/brain/satellite/offboard.
+    Returns the export dict on success, None on error.
+    """
+    url = f"{LAEKA_BRAIN_API_URL}/v1/brain/satellite/offboard"
+    try:
+        async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
+            r = await client.post(
+                url,
+                json={"user_uuid": user_uuid, "confirm": True},
+                headers={"X-Consumer": "laeka-brain"},
+            )
+        if r.status_code == 200:
+            data = r.json()
+            _cache_bust(f"satellite_identity:{user_uuid}")
+            _cache_bust(f"mini_identity:{user_uuid}")
+            delete_api_key()
+            log.info(
+                "offboard_satellite: offboarded user=%.8s... chunks=%d",
+                user_uuid, data.get("private_chunks_count", 0),
+            )
+            return data
+        if r.status_code == 404:
+            log.warning(
+                "offboard_satellite: not found user=%.8s... (never provisioned?)",
+                user_uuid,
+            )
+            return None
+        log.warning(
+            "offboard_satellite: status=%d user=%.8s...: %s",
+            r.status_code, user_uuid, r.text[:200],
+        )
+        return None
+    except Exception as exc:
+        log.warning("offboard_satellite: network error (%s)", exc)
+        return None
+
+
 async def offboard_mini_brain(user_uuid: str) -> Optional[dict]:
     """Trigger offboarding for user_uuid — exports then destroys mini-brain.
 
+    DEPRECATED: Use offboard_satellite() — this is a legacy alias for MCP clients 0.2.x.
     Returns the export dict on success, None on error.
     """
     url = f"{LAEKA_BRAIN_API_URL}/v1/brain/mini/offboard"
