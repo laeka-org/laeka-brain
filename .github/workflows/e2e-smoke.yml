@@ -1,0 +1,60 @@
+name: E2E smoke test
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Wait for PyPI propagation
+        run: sleep 60
+
+      - name: Install latest from PyPI
+        run: pip install --upgrade laeka-brain
+
+      - name: Smoke test — package callable, returns structured response
+        run: |
+          python -c "
+          import laeka_brain
+          from laeka_brain.client import list_brain_skills
+          import asyncio
+
+          async def main():
+              result = await list_brain_skills(brain='laeka-code')
+              # In CI there is no API key, so we expect either:
+              # - A dict with 'error': 'subscription_required' (403 returned as dict by client)
+              # - None (network unreachable in CI)
+              # We do NOT expect an unhandled exception — that would be a packaging bug.
+              assert result is None or isinstance(result, dict), (
+                  f'Expected None or dict, got {type(result)}: {result!r}'
+              )
+              if isinstance(result, dict):
+                  print(f'Response keys: {list(result.keys())}')
+              print('MCP package callable — returns structured response or None on network error')
+
+          asyncio.run(main())
+          "
+
+      - name: Smoke test — config module importable
+        run: |
+          python -c "
+          from laeka_brain.config import get_user_uuid, get_api_key, set_api_key
+          # Should not raise — functions exist and are importable
+          print('config module OK')
+          "
+
+      - name: Smoke test — server entrypoint importable
+        run: |
+          python -c "
+          from laeka_brain.server import main
+          print('server entrypoint OK')
+          "

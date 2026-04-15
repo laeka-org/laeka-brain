@@ -15,7 +15,7 @@ from typing import Any, Optional
 
 import httpx
 
-from .config import get_user_uuid
+from .config import get_user_uuid, get_api_key, set_api_key, delete_api_key
 
 log = logging.getLogger(__name__)
 
@@ -143,6 +143,11 @@ async def provision_mini_brain(user_uuid: str) -> Optional[dict]:
             data = r.json()
             status = "provisioned" if r.status_code == 200 else "already exists"
             log.debug("provision_mini_brain: %s user=%.8s...", status, user_uuid)
+            # Phase 4 — persist the JWT API key returned by the server.
+            api_key = data.get("api_key")
+            if api_key:
+                set_api_key(api_key)
+                log.debug("provision_mini_brain: API key stored")
             return data
         log.warning(
             "provision_mini_brain: status=%d user=%.8s...: %s",
@@ -319,7 +324,12 @@ async def list_brain_skills(
     """
     url = f"{LAEKA_BRAIN_API_URL}/v1/brain/{brain}/skills"
     try:
-        headers = {"X-Consumer": "laeka-brain", "X-User-UUID": get_user_uuid()}
+        # Phase 4: prefer JWT API key (Bearer), fall back to legacy X-User-UUID.
+        api_key = get_api_key()
+        if api_key:
+            headers = {"X-Consumer": "laeka-brain", "Authorization": f"Bearer {api_key}"}
+        else:
+            headers = {"X-Consumer": "laeka-brain", "X-User-UUID": get_user_uuid()}
         async with httpx.AsyncClient(timeout=timeout) as client:
             r = await client.get(url, headers=headers)
         if r.status_code == 200:
@@ -364,7 +374,12 @@ async def get_brain_skill(
     """
     url = f"{LAEKA_BRAIN_API_URL}/v1/brain/{brain}/skills/{skill}"
     try:
-        headers = {"X-Consumer": "laeka-brain", "X-User-UUID": get_user_uuid()}
+        # Phase 4: prefer JWT API key (Bearer), fall back to legacy X-User-UUID.
+        api_key = get_api_key()
+        if api_key:
+            headers = {"X-Consumer": "laeka-brain", "Authorization": f"Bearer {api_key}"}
+        else:
+            headers = {"X-Consumer": "laeka-brain", "X-User-UUID": get_user_uuid()}
         async with httpx.AsyncClient(timeout=timeout) as client:
             r = await client.get(url, headers=headers)
         if r.status_code == 200:
@@ -419,6 +434,8 @@ async def offboard_mini_brain(user_uuid: str) -> Optional[dict]:
         if r.status_code == 200:
             data = r.json()
             _cache_bust(f"mini_identity:{user_uuid}")
+            # Phase 4 — remove local API key on offboard.
+            delete_api_key()
             log.info(
                 "offboard_mini_brain: offboarded user=%.8s... chunks=%d",
                 user_uuid, data.get("private_chunks_count", 0),
