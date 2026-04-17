@@ -1,8 +1,31 @@
+<div align="right">
+
+[![Website](https://img.shields.io/badge/laeka.ai-Visit-2D2A24?style=flat-square)](https://laeka.ai) [![Lab](https://img.shields.io/badge/laeka.org-Lab-C8A96E?style=flat-square)](https://laeka.org) [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+
+</div>
+
 # laeka-brain
 
 A cognitive layer for the AI you already use.
 
+> **Website:** [laeka.ai](https://laeka.ai) · **Research Lab:** [laeka.org](https://laeka.org) · **License:** MIT
+
 This MCP server connects your Claude Code environment to Laeka Brain — the Laeka protocol made available through six tools. It is a context provider. It does not call an LLM. It does not store your conversations. It returns context that Claude uses natively.
+
+**Open source by design.** All code here is MIT-licensed. The cognitive infrastructure is open because a private cognitive layer would contradict what we're building. What we sell commercially at [laeka.ai](https://laeka.ai) is hosted convenience, curated brain marketplace access, and enterprise support — not the code itself. See [Commercial support](#commercial-support) below.
+
+---
+
+## Contents
+
+- [What it is](#what-it-is)
+- [How to install](#how-to-install)
+- [How to configure](#how-to-configure)
+- [The 4 tools](#the-4-tools)
+- [How to leave](#how-to-leave)
+- [Commercial support](#commercial-support)
+- [Contribute](#contribute)
+- [License](#license)
 
 ---
 
@@ -148,3 +171,30 @@ No cron jobs. No daemons. No leftover files beyond `~/.config/laeka-brain/` (whi
 ---
 
 *Built with gratitude for Anthropic's foundational work. Laeka Brain is an extension that amplifies Claude Code — not a competitor, not a replacement.*
+
+---
+
+## Commercial support
+
+The code here is free. What Laeka Lab offers commercially is **service value, not code access**:
+
+- **Community (free)** — Self-host everything. All brains, all skills, MIT licensed. Community support via GitHub issues.
+- **Individual — $15/brain or $40/bundle** — Hosted canonical sync, cross-project memory, email support. For individuals who want to support the lab while accessing hosted infrastructure.
+- **Enterprise — [let's talk](mailto:contact@laeka.org)** — Custom brain construction for your domain, private deploys (on-prem/AirGap), integration consulting, SLA, priority support, compliance artifacts. Funds the lab and its open source work.
+
+See [laeka.ai/pricing](https://laeka.ai/pricing) for details. If you want to self-host, the repo is here — fork, clone, run.
+
+## Contribute
+
+Skills contributions welcome. Open a PR with:
+1. A skill in the appropriate brain under `brains/<brain-name>/` following the existing structure
+2. A short rationale in the PR description (which lens does this skill operate through — MONADE, SYMBIOTE, ARCHITECT, EMPATH)
+3. At least one concrete use case
+
+For protocol proposals or philosophy questions, see [laeka.org/protocol](https://laeka.org/protocol) and open a Discussion first.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+The insight itself — how cognition converges toward integrity — belongs to everyone. We don't patent cognition.
